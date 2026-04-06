@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>75 Hard | Daily Ritual</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital@0;1&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f9f8f6; color: #4a4a4a; }
+        h1, h2 { font-family: 'Playfair Display', serif; }
+        .habit-item { transition: all 0.2s ease-in-out; }
+        .custom-checkbox:checked + span { color: #a1a1a1; text-decoration: line-through; }
+        .photo-frame { box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 12px solid white; }
+    </style>
+</head>
+<body class="min-h-screen py-12 px-6">
+
+    <div class="max-w-md mx-auto">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl italic mb-2 text-stone-800">The 75 Hard</h1>
+            <p class="text-sm tracking-widest uppercase text-stone-400">Day <span id="day-display">1</span> of 75</p>
+            <div class="mt-6 w-full bg-stone-200 h-1 rounded-full">
+                <div id="progress-bar" class="bg-stone-500 h-1 rounded-full transition-all duration-1000" style="width: 1%"></div>
+            </div>
+        </header>
+
+        <div id="habit-container" class="space-y-6">
+            <label class="habit-item flex items-center p-4 bg-white rounded-2xl border border-stone-100 cursor-pointer shadow-sm">
+                <input type="checkbox" class="custom-checkbox w-5 h-5 border-stone-300 rounded-full text-stone-600 focus:ring-stone-400 habit-check" data-habit="diet">
+                <span class="ml-4 text-sm font-light">Structured Diet & Zero Alcohol</span>
+            </label>
+
+            <label class="habit-item flex items-center p-4 bg-white rounded-2xl border border-stone-100 cursor-pointer shadow-sm">
+                <input type="checkbox" class="custom-checkbox w-5 h-5 border-stone-300 rounded-full text-stone-600 focus:ring-stone-400 habit-check" data-habit="workout1">
+                <span class="ml-4 text-sm font-light">45 Min Outdoor Workout</span>
+            </label>
+
+            <label class="habit-item flex items-center p-4 bg-white rounded-2xl border border-stone-100 cursor-pointer shadow-sm">
+                <input type="checkbox" class="custom-checkbox w-5 h-5 border-stone-300 rounded-full text-stone-600 focus:ring-stone-400 habit-check" data-habit="workout2">
+                <span class="ml-4 text-sm font-light">45 Min Second Workout</span>
+            </label>
+
+            <label class="habit-item flex items-center p-4 bg-white rounded-2xl border border-stone-100 cursor-pointer shadow-sm">
+                <input type="checkbox" class="custom-checkbox w-5 h-5 border-stone-300 rounded-full text-stone-600 focus:ring-stone-400 habit-check" data-habit="water">
+                <span class="ml-4 text-sm font-light">Drink 3.78L of Water</span>
+            </label>
+
+            <label class="habit-item flex items-center p-4 bg-white rounded-2xl border border-stone-100 cursor-pointer shadow-sm">
+                <input type="checkbox" class="custom-checkbox w-5 h-5 border-stone-300 rounded-full text-stone-600 focus:ring-stone-400 habit-check" data-habit="reading">
+                <span class="ml-4 text-sm font-light">Read 10 Pages (Non-Fiction)</span>
+            </label>
+
+            <div class="pt-4">
+                <p class="text-xs uppercase tracking-widest text-stone-400 mb-4 text-center">Daily Progress Proof</p>
+                <div id="photo-area" class="relative group">
+                    <input type="file" id="photo-input" class="hidden" accept="image/*">
+                    <div onclick="document.getElementById('photo-input').click()" class="cursor-pointer bg-white photo-frame rounded-sm flex items-center justify-center min-h-[300px] overflow-hidden">
+                        <img id="preview-img" class="hidden w-full h-auto object-cover" src="" alt="Proof">
+                        <div id="upload-placeholder" class="text-center p-8">
+                            <svg class="w-8 h-8 mx-auto mb-2 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            <span class="text-xs text-stone-400">Capture Proof</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-12 space-y-4">
+            <button id="complete-btn" class="w-full py-4 bg-stone-800 text-stone-50 rounded-full font-light tracking-wide hover:bg-stone-700 transition-colors">
+                Complete Day
+            </button>
+            <button id="fail-btn" class="w-full py-2 text-stone-400 text-xs hover:text-red-400 transition-colors underline underline-offset-4">
+                Reset Challenge
+            </button>
+        </div>
+
+        <p class="text-center mt-8 text-[10px] text-stone-300 uppercase tracking-[0.2em]">
+            Syncing to local storage • Last update: <span id="time-display">00:00</span>
+        </p>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'shkya_75hard_data';
+        let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+            day: 1,
+            habits: { diet: false, workout1: false, workout2: false, water: false, reading: false },
+            lastTime: '--:--'
+        };
+
+        const updateDisplay = () => {
+            document.getElementById('day-display').innerText = state.day;
+            document.getElementById('progress-bar').style.width = (state.day / 75 * 100) + '%';
+            document.getElementById('time-display').innerText = state.lastTime;
+            
+            document.querySelectorAll('.habit-check').forEach(input => {
+                input.checked = state.habits[input.dataset.habit];
+            });
+        };
+
+        const saveState = () => {
+            state.lastTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            updateDisplay();
+        };
+
+        // Habit Listeners
+        document.querySelectorAll('.habit-check').forEach(input => {
+            input.addEventListener('change', (e) => {
+                state.habits[e.target.dataset.habit] = e.target.checked;
+                saveState();
+            });
+        });
+
+        // Photo Handler
+        document.getElementById('photo-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    document.getElementById('preview-img').src = event.target.result;
+                    document.getElementById('preview-img').classList.remove('hidden');
+                    document.getElementById('upload-placeholder').classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Day Progression
+        document.getElementById('complete-btn').addEventListener('click', () => {
+            const allDone = Object.values(state.habits).every(v => v === true);
+            if (!allDone) {
+                alert("Please finish all tasks before ending the day.");
+                return;
+            }
+            if (confirm("Day " + state.day + " complete. Continue to tomorrow?")) {
+                state.day++;
+                Object.keys(state.habits).forEach(k => state.habits[k] = false);
+                document.getElementById('preview-img').classList.add('hidden');
+                document.getElementById('upload-placeholder').classList.remove('hidden');
+                saveState();
+            }
+        });
+
+        // Reset
+        document.getElementById('fail-btn').addEventListener('click', () => {
+            if (confirm("Reset the journey back to Day 1?")) {
+                state.day = 1;
+                Object.keys(state.habits).forEach(k => state.habits[k] = false);
+                saveState();
+            }
+        });
+
+        updateDisplay();
+    </script>
+</body>
+</html>
