@@ -2,8 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>75 Hard | Digital Ritual</title>
+    
+    <!-- PWA & Mobile Optimization Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="75 Hard">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#f9f8f6">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3208/3208740.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital@0;1&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
@@ -34,7 +43,7 @@
         .btn-locked { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); }
     </style>
 </head>
-<body class="min-h-screen py-8 px-4 md:px-6">
+<body class="min-h-screen py-8 px-4 md:px-6 safe-area-inset">
 
     <div class="max-w-md mx-auto">
         <!-- Navigation Tabs -->
@@ -142,7 +151,7 @@
                     <div class="flex items-center justify-between py-3 border-t border-stone-50">
                         <div>
                             <span class="text-[10px] uppercase tracking-widest text-stone-500 block">Smart Reminders</span>
-                            <span class="text-[8px] text-stone-300">Active after work (15:00 - 22:00)</span>
+                            <span class="text-[8px] text-stone-300">Tailored check-in daily at 18:00</span>
                         </div>
                         <button id="notif-toggle" onclick="toggleNotifications()" class="w-10 h-5 bg-stone-200 rounded-full relative transition-colors">
                             <div id="notif-dot" class="w-4 h-4 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform"></div>
@@ -187,7 +196,7 @@
     <div id="message-box" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-[10px] uppercase tracking-widest px-6 py-3 rounded-full shadow-xl opacity-0 transition-opacity pointer-events-none z-[60]"></div>
 
     <script>
-        const STORAGE_KEY = 'shkya_75hard_v7_ios';
+        const STORAGE_KEY = 'shkya_75hard_v8_brisbane';
         let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
             currentDay: 1,
             history: {}, 
@@ -223,7 +232,7 @@
                 const permission = await Notification.requestPermission();
                 if (permission === 'granted') {
                     state.notifsEnabled = true;
-                    showMessage("Reminders Active (15:00 - 22:00)");
+                    showMessage("Reminders Active (18:00 Progress Check)");
                 } else {
                     showMessage("Enable browser notifications first.");
                 }
@@ -251,18 +260,31 @@
             if (!state.notifsEnabled) return;
             const now = new Date();
             const hours = now.getHours();
+            const mins = now.getMinutes();
             const count = countCompleted(state.todayHabits);
+            const todayStr = now.toDateString();
             
-            if (hours >= 15 && hours < 22 && count < 6) {
-                const lastReminder = localStorage.getItem('shkya_last_reminder');
-                const todayStr = now.toDateString();
-                
-                if (lastReminder !== todayStr) {
-                    new Notification("75 Hard Ritual", {
-                        body: `Hi Shkya, work is over. You have ${6 - count} tasks left for Day ${state.currentDay}.`,
+            // 18:00 tailored check
+            if (hours === 18 && mins === 0) {
+                const last1800 = localStorage.getItem('shkya_last_1800');
+                if (last1800 !== todayStr && count < 6) {
+                    new Notification("75 Hard: Evening Check", {
+                        body: `Hi Shkya! It's 18:00. You've done ${count}/6 tasks for Day ${state.currentDay}. Almost there!`,
                         icon: 'https://cdn-icons-png.flaticon.com/512/3208/3208740.png'
                     });
-                    localStorage.setItem('shkya_last_reminder', todayStr);
+                    localStorage.setItem('shkya_last_1800', todayStr);
+                }
+            }
+            
+            // Post-work general nudge
+            if (hours >= 15 && hours < 22 && count < 6) {
+                const lastGeneral = localStorage.getItem('shkya_last_general_nudge');
+                if (lastGeneral !== todayStr && hours !== 18) {
+                    new Notification("75 Hard Ritual", {
+                        body: `Hi Shkya, just a gentle nudge. You have ${6 - count} tasks left. Keep going!`,
+                        icon: 'https://cdn-icons-png.flaticon.com/512/3208/3208740.png'
+                    });
+                    localStorage.setItem('shkya_last_general_nudge', todayStr);
                 }
             }
         };
@@ -278,7 +300,7 @@
             } else if (count === 0) {
                 msgEl.innerText = messages[Math.floor(Math.random() * messages.length)];
             } else if (count < 6) {
-                msgEl.innerText = `Almost there, Shkya. ${6 - count} more to go.`;
+                msgEl.innerText = `Keep going Shkya. ${6 - count} more to go.`;
             } else if (hours < 20) {
                 msgEl.innerText = "Perfect day. The 'End Day' lock releases at 20:00.";
             } else {
@@ -471,6 +493,7 @@
 
         updateUI();
         setInterval(() => { updateUI(); checkReminders(); }, 60000); 
+        checkReminders();
     </script>
 </body>
 </html>
