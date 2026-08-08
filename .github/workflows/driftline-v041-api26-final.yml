@@ -1,0 +1,56 @@
+name: Driftline v0.4.1 API 26 Final Runtime Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/driftline-v041-api26-final.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUNTIME_URL: 'https://sdmntpraustraliaeast.oaiusercontent.com/files/00000000-7474-81fa-9b4e-1d5ec1b54069/raw?se=2026-08-08T05%3A57%3A14Z&sp=r&sv=2026-02-06&sr=b&scid=c41e61b6-37f6-5e01-a082-3cc9824f1eb0&skoid=cb94e22a-e3df-4e6a-9e17-1696f40fa435&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-08T01%3A48%3A05Z&ske=2026-08-09T01%3A48%3A05Z&sks=b&skv=2026-02-06&sig=/F7dxFfrhIVMlVz/cvXAV8/Q5zpBvvkyx4BeuIIbAtE%3D'
+  RUNTIME_SHA256: 9e140dc7b6a3b122d8dd53bf56fbcb5b04eeb6643ad26647f6afb7acd42cd973
+  APP_PACKAGE: com.kuschi.driftline.echoes
+  MAIN_ACTIVITY: com.kuschi.driftline.MainActivity
+
+jobs:
+  api26-runtime:
+    name: API 26 install, launch, mechanics, lifecycle, and relaunch
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Download and verify runtime APK bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/runtime /tmp/api26-final-evidence
+          curl --fail --location --retry 5 --retry-all-errors "$RUNTIME_URL" -o /tmp/runtime.zip
+          echo "$RUNTIME_SHA256  /tmp/runtime.zip" | sha256sum --check --strict
+          unzip -q /tmp/runtime.zip -d /tmp/runtime
+          test -s /tmp/runtime/Driftline-Echoes-at-0317-v0.4.1.apk
+          test -s /tmp/runtime/Driftline-Echoes-at-0317-v0.4.1-androidTest.apk
+
+      - name: Boot Android 8 emulator and execute installed-app tests
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 26
+          target: google_apis
+          arch: x86_64
+          profile: pixel
+          force-avd-creation: true
+          emulator-boot-timeout: 600
+          disable-animations: true
+          emulator-options: -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: echo 'IyEvdXNyL2Jpbi9lbnYgYmFzaApzZXQgLWV1byBwaXBlZmFpbApBUFA9L3RtcC9ydW50aW1lL0RyaWZ0bGluZS1FY2hvZXMtYXQtMDMxNy12MC40LjEuYXBrClRFU1Q9L3RtcC9ydW50aW1lL0RyaWZ0bGluZS1FY2hvZXMtYXQtMDMxNy12MC40LjEtYW5kcm9pZFRlc3QuYXBrCk9VVD0vdG1wL2FwaTI2LWZpbmFsLWV2aWRlbmNlCm1rZGlyIC1wICIkT1VUIgoKYWRiIHdhaXQtZm9yLWRldmljZQphZGIgZGV2aWNlcyAtbCB8IHRlZSAiJE9VVC9hZGItZGV2aWNlcy50eHQiCmFkYiBzaGVsbCBnZXRwcm9wID4gIiRPVVQvZGV2aWNlLXByb3BlcnRpZXMudHh0IgphZGIgc2hlbGwgc2V0dGluZ3MgcHV0IGdsb2JhbCB3aW5kb3dfYW5pbWF0aW9uX3NjYWxlIDAKYWRiIHNoZWxsIHNldHRpbmdzIHB1dCBnbG9iYWwgdHJhbnNpdGlvbl9hbmltYXRpb25fc2NhbGUgMAphZGIgc2hlbGwgc2V0dGluZ3MgcHV0IGdsb2JhbCBhbmltYXRvcl9kdXJhdGlvbl9zY2FsZSAwCgphZGIgaW5zdGFsbCAtciAtdCAiJEFQUCIgPiAiJE9VVC9pbnN0YWxsLWFwcC50eHQiIDI+JjEKY2F0ICIkT1VUL2luc3RhbGwtYXBwLnR4dCIKZ3JlcCAtcSBTdWNjZXNzICIkT1VUL2luc3RhbGwtYXBwLnR4dCIKYWRiIGluc3RhbGwgLXIgLXQgIiRURVNUIiA+ICIkT1VUL2luc3RhbGwtdGVzdC50eHQiIDI+JjEKY2F0ICIkT1VUL2luc3RhbGwtdGVzdC50eHQiCmdyZXAgLXEgU3VjY2VzcyAiJE9VVC9pbnN0YWxsLXRlc3QudHh0IgoKYWRiIGxvZ2NhdCAtYwphZGIgc2hlbGwgYW0gc3RhcnQgLVcgLVMgLW4gIiRBUFBfUEFDS0FHRS8kTUFJTl9BQ1RJVklUWSIgfCB0ZWUgIiRPVVQvZmlyc3QtbGF1bmNoLnR4dCIKc2xlZXAgNwpQSUQ9IiQoYWRiIHNoZWxsIHBpZG9mICIkQVBQX1BBQ0tBR0UiIHwgdHIgLWQgJ1xyJykiCnRlc3QgLW4gIiRQSUQiCmVjaG8gIiRQSUQiID4gIiRPVVQvZmlyc3QtbGF1bmNoLnBpZCIKYWRiIGV4ZWMtb3V0IHNjcmVlbmNhcCAtcCA+ICIkT1VUL2ZpcnN0LWxhdW5jaC5wbmciCmFkYiBzaGVsbCB1aWF1dG9tYXRvciBkdW1wIC9zZGNhcmQvd2luZG93LnhtbCA+L2Rldi9udWxsIHx8IHRydWUKYWRiIHB1bGwgL3NkY2FyZC93aW5kb3cueG1sICIkT1VUL2ZpcnN0LXdpbmRvdy54bWwiID4vZGV2L251bGwgfHwgdHJ1ZQphZGIgbG9nY2F0IC1kIC12IHRocmVhZHRpbWUgPiAiJE9VVC9sb2djYXQtZmlyc3QtbGF1bmNoLnR4dCIKISBncmVwIC1FICJGQVRBTCBFWENFUFRJT058QU5SIGluICRBUFBfUEFDS0FHRXxQcm9jZXNzOiAkQVBQX1BBQ0tBR0UuKmhhcyBkaWVkIiAiJE9VVC9sb2djYXQtZmlyc3QtbGF1bmNoLnR4dCIKCklOU1RSVU1FTlRBVElPTj0iJChhZGIgc2hlbGwgcG0gbGlzdCBpbnN0cnVtZW50YXRpb24gfCB0ciAtZCAnXHInIHwgc2VkIC1uICJzI15pbnN0cnVtZW50YXRpb246XChbXiBdKlwpICh0YXJnZXQ9JEFQUF9QQUNLQUdFKS4qI1wxI3AiIHwgaGVhZCAtbjEpIgp0ZXN0IC1uICIkSU5TVFJVTUVOVEFUSU9OIgplY2hvICIkSU5TVFJVTUVOVEFUSU9OIiB8IHRlZSAiJE9VVC9pbnN0cnVtZW50YXRpb24tY29tcG9uZW50LnR4dCIKCnNldCArZQphZGIgc2hlbGwgYW0gaW5zdHJ1bWVudCAtdyAtciBcCiAgLWUgY2xhc3MgY29tLmt1c2NoaS5kcmlmdGxpbmUuRHJpZnRsaW5lRTJFVGVzdCNsaWZlY3ljbGVBbmRBY2Nlc3NpYmlsaXR5TW9kZXNSZW1haW5Vc2FibGUgXAogICIkSU5TVFJVTUVOVEFUSU9OIiA+ICIkT1VUL2luc3RydW1lbnRhdGlvbi1saWZlY3ljbGUudHh0IiAyPiYxCkxJRkVDWUNMRV9TVEFUVVM9JD8Kc2V0IC1lCmNhdCAiJE9VVC9pbnN0cnVtZW50YXRpb24tbGlmZWN5Y2xlLnR4dCIKdGVzdCAiJExJRkVDWUNMRV9TVEFUVVMiIC1lcSAwCmdyZXAgLUVxICdPSyBcKDEgdGVzdHM/XCknICIkT1VUL2luc3RydW1lbnRhdGlvbi1saWZlY3ljbGUudHh0IgohIGdyZXAgLUVxICdGQUlMVVJFUyEhIXxJTlNUUlVNRU5UQVRJT05fRkFJTEVEfFByb2Nlc3MgY3Jhc2hlZCcgIiRPVVQvaW5zdHJ1bWVudGF0aW9uLWxpZmVjeWNsZS50eHQiCgpzZXQgK2UKYWRiIHNoZWxsIGFtIGluc3RydW1lbnQgLXcgLXIgXAogIC1lIGNsYXNzIGNvbS5rdXNjaGkuZHJpZnRsaW5lLkRyaWZ0bGluZUUyRVRlc3QjZXZlcnlNZWNoYW5pY0FjY2VwdHNJbnB1dEFuZEZhaWx1cmVSZXR1cm5zVG9CcmllZmluZyBcCiAgIiRJTlNUUlVNRU5UQVRJT04iID4gIiRPVVQvaW5zdHJ1bWVudGF0aW9uLW1lY2hhbmljcy50eHQiIDI+JjEKTUVDSEFOSUNTX1NUQVRVUz0kPwpzZXQgLWUKY2F0ICIkT1VUL2luc3RydW1lbnRhdGlvbi1tZWNoYW5pY3MudHh0Igp0ZXN0ICIkTUVDSEFOSUNTX1NUQVRVUyIgLWVxIDAKZ3JlcCAtRXEgJ09LIFwoMSB0ZXN0cz9cKScgIiRPVVQvaW5zdHJ1bWVudGF0aW9uLW1lY2hhbmljcy50eHQiCiEgZ3JlcCAtRXEgJ0ZBSUxVUkVTISEhfElOU1RSVU1FTlRBVElPTl9GQUlMRUR8UHJvY2VzcyBjcmFzaGVkJyAiJE9VVC9pbnN0cnVtZW50YXRpb24tbWVjaGFuaWNzLnR4dCIKCmFkYiBsb2djYXQgLWMKYWRiIHNoZWxsIGFtIGZvcmNlLXN0b3AgIiRBUFBfUEFDS0FHRSIKYWRiIHNoZWxsIGFtIHN0YXJ0IC1XIC1TIC1uICIkQVBQX1BBQ0tBR0UvJE1BSU5fQUNUSVZJVFkiIHwgdGVlICIkT1VUL3JlbGF1bmNoLnR4dCIKc2xlZXAgNQpQSUQyPSIkKGFkYiBzaGVsbCBwaWRvZiAiJEFQUF9QQUNLQUdFIiB8IHRyIC1kICdccicpIgp0ZXN0IC1uICIkUElEMiIKZWNobyAiJFBJRDIiID4gIiRPVVQvcmVsYXVuY2gucGlkIgphZGIgZXhlYy1vdXQgc2NyZWVuY2FwIC1wID4gIiRPVVQvcmVsYXVuY2gucG5nIgphZGIgbG9nY2F0IC1kIC12IHRocmVhZHRpbWUgPiAiJE9VVC9sb2djYXQtcmVsYXVuY2gudHh0IgohIGdyZXAgLUUgIkZBVEFMIEVYQ0VQVElPTnxBTlIgaW4gJEFQUF9QQUNLQUdFfFByb2Nlc3M6ICRBUFBfUEFDS0FHRS4qaGFzIGRpZWQiICIkT1VUL2xvZ2NhdC1yZWxhdW5jaC50eHQiCg==' | base64 -d > /tmp/driftline-api26-final.sh && bash /tmp/driftline-api26-final.sh
+
+      - name: Upload API 26 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: driftline-v041-api26-final-evidence
+          path: /tmp/api26-final-evidence
+          if-no-files-found: warn
+          retention-days: 7
