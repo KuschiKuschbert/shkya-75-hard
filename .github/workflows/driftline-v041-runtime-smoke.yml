@@ -1,0 +1,47 @@
+name: Driftline v0.4.1 Runtime Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/driftline-v041-runtime-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUNTIME_URL: 'https://sdmntprwestus.oaiusercontent.com/files/00000000-10c4-8230-a6de-ba1b616b3f8a/raw?se=2026-08-08T05%3A48%3A25Z&sp=r&sv=2026-02-06&sr=b&scid=a1c56247-c612-59df-b30c-af7bbbe92d34&skoid=cb94e22a-e3df-4e6a-9e17-1696f40fa435&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-08T02%3A07%3A11Z&ske=2026-08-09T02%3A07%3A11Z&sks=b&skv=2026-02-06&sig=J7HDoHBnwd65k7wei15Fz48JZ31Ac0ABGajgfBV843w%3D'
+  RUNTIME_SHA256: 9e140dc7b6a3b122d8dd53bf56fbcb5b04eeb6643ad26647f6afb7acd42cd973
+  APP_PACKAGE: com.kuschi.driftline.echoes
+  MAIN_ACTIVITY: com.kuschi.driftline.MainActivity
+
+jobs:
+  api35-smoke:
+    name: API 35 install, launch, instrumentation, and relaunch
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Download and verify runtime APK bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/runtime /tmp/smoke-evidence
+          curl --fail --location --retry 5 --retry-all-errors "$RUNTIME_URL" -o /tmp/runtime.zip
+          echo "$RUNTIME_SHA256  /tmp/runtime.zip" | sha256sum --check --strict
+          unzip -q /tmp/runtime.zip -d /tmp/runtime
+          test -s /tmp/runtime/Driftline-Echoes-at-0317-v0.4.1.apk
+          test -s /tmp/runtime/Driftline-Echoes-at-0317-v0.4.1-androidTest.apk
+
+      - name: Boot emulator and run runtime smoke
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: true
+          emulator-boot-timeout: 600
+          disable-animations: true
+          emulator-options: -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: echo 'IyEvdXNyL2Jpbi9lbnYgYmFzaApzZXQgLWV1byBwaXBlZmFpbApBUFA9L3RtcC9ydW50aW1lL0RyaWZ0bGluZS1FY2hvZXMtYXQtMDMxNy12MC40LjEuYXBrClRFU1Q9L3RtcC9ydW50aW1lL0RyaWZ0bGluZS1FY2hvZXMtYXQtMDMxNy12MC40LjEtYW5kcm9pZFRlc3QuYXBrCm1rZGlyIC1wIC90bXAvc21va2UtZXZpZGVuY2UKCmFkYiB3YWl0LWZvci1kZXZpY2UKYWRiIGRldmljZXMgLWwgfCB0ZWUgL3RtcC9zbW9rZS1ldmlkZW5jZS9hZGItZGV2aWNlcy50eHQKYWRiIHNoZWxsIGdldHByb3AgPiAvdG1wL3Ntb2tlLWV2aWRlbmNlL2RldmljZS1wcm9wZXJ0aWVzLnR4dAoKYWRiIGluc3RhbGwgLXIgLXQgIiRBUFAiID4gL3RtcC9zbW9rZS1ldmlkZW5jZS9pbnN0YWxsLWFwcC50eHQgMj4mMQpjYXQgL3RtcC9zbW9rZS1ldmlkZW5jZS9pbnN0YWxsLWFwcC50eHQKZ3JlcCAtcSBTdWNjZXNzIC90bXAvc21va2UtZXZpZGVuY2UvaW5zdGFsbC1hcHAudHh0CmFkYiBpbnN0YWxsIC1yIC10ICIkVEVTVCIgPiAvdG1wL3Ntb2tlLWV2aWRlbmNlL2luc3RhbGwtdGVzdC50eHQgMj4mMQpjYXQgL3RtcC9zbW9rZS1ldmlkZW5jZS9pbnN0YWxsLXRlc3QudHh0CmdyZXAgLXEgU3VjY2VzcyAvdG1wL3Ntb2tlLWV2aWRlbmNlL2luc3RhbGwtdGVzdC50eHQKCmFkYiBsb2djYXQgLWMKYWRiIHNoZWxsIGFtIHN0YXJ0IC1XIC1TIC1uICIkQVBQX1BBQ0tBR0UvJE1BSU5fQUNUSVZJVFkiIHwgdGVlIC90bXAvc21va2UtZXZpZGVuY2UvZmlyc3QtbGF1bmNoLnR4dApzbGVlcCA3CnRlc3QgLW4gIiQoYWRiIHNoZWxsIHBpZG9mICIkQVBQX1BBQ0tBR0UiIHwgdHIgLWQgJ1xyJykiCmFkYiBleGVjLW91dCBzY3JlZW5jYXAgLXAgPiAvdG1wL3Ntb2tlLWV2aWRlbmNlL2ZpcnN0LWxhdW5jaC5wbmcKYWRiIHNoZWxsIHVpYXV0b21hdG9yIGR1bXAgL3NkY2FyZC93aW5kb3cueG1sID4vZGV2L251bGwgfHwgdHJ1ZQphZGIgcHVsbCAvc2RjYXJkL3dpbmRvdy54bWwgL3RtcC9zbW9rZS1ldmlkZW5jZS9maXJzdC13aW5kb3cueG1sID4vZGV2L251bGwgfHwgdHJ1ZQphZGIgbG9nY2F0IC1kIC12IHRocmVhZHRpbWUgPiAvdG1wL3Ntb2tlLWV2aWRlbmNlL2xvZ2NhdC1maXJzdC1sYXVuY2gudHh0CiEgZ3JlcCAtRSAiRkFUQUwgRVhDRVBUSU9OfEFOUiBpbiAkQVBQX1BBQ0tBR0V8UHJvY2VzczogJEFQUF9QQUNLQUdFLipoYXMgZGllZCIgL3RtcC9zbW9rZS1ldmlkZW5jZS9sb2djYXQtZmlyc3QtbGF1bmNoLnR4dAoKSU5TVFJVTUVOVEFUSU9OPSQoYWRiIHNoZWxsIHBtIGxpc3QgaW5zdHJ1bWVudGF0aW9uIHwgdHIgLWQgJ1xyJyB8IHNlZCAtbiAicyNeaW5zdHJ1bWVudGF0aW9uOlwoW14gXSpcKSAodGFyZ2V0PSRBUFBfUEFDS0FHRSkuKiNcMSNwIiB8IGhlYWQgLW4xKQp0ZXN0IC1uICIkSU5TVFJVTUVOVEFUSU9OIg==...
