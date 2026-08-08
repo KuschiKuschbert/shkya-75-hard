@@ -1,0 +1,55 @@
+name: Driftline v0.4.1 API 26 Launch Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/driftline-v041-api26-launch.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUNTIME_URL: 'https://sdmntprindiasocentral.oaiusercontent.com/files/00000000-5e80-8211-b7a2-54c4e4c4ef19/raw?se=2026-08-08T06%3A14%3A37Z&sp=r&sv=2026-02-06&sr=b&scid=82bc7bf0-0515-51b6-9dc2-fb7248e7b41b&skoid=cb94e22a-e3df-4e6a-9e17-1696f40fa435&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-08T02%3A07%3A11Z&ske=2026-08-09T02%3A07%3A11Z&sks=b&skv=2026-02-06&sig=AwgVpR0gHSdViOrR87wZU3%2B4rUIXVVq0fzeFAvkxr1I%3D'
+  RUNTIME_SHA256: 9e140dc7b6a3b122d8dd53bf56fbcb5b04eeb6643ad26647f6afb7acd42cd973
+  APP_PACKAGE: com.kuschi.driftline.echoes
+  MAIN_ACTIVITY: com.kuschi.driftline.MainActivity
+
+jobs:
+  api26-launch:
+    name: API 26 install, launch, force-stop, and relaunch
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Download and verify APK bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/runtime /tmp/api26-launch-evidence
+          curl --fail --location --retry 5 --retry-all-errors "$RUNTIME_URL" -o /tmp/runtime.zip
+          echo "$RUNTIME_SHA256  /tmp/runtime.zip" | sha256sum --check --strict
+          unzip -q /tmp/runtime.zip -d /tmp/runtime
+          test -s /tmp/runtime/Driftline-Echoes-at-0317-v0.4.1.apk
+
+      - name: Boot Android 8 and execute runtime launch gate
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 26
+          target: google_apis
+          arch: x86_64
+          profile: pixel
+          force-avd-creation: true
+          emulator-boot-timeout: 600
+          disable-animations: true
+          emulator-options: -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: echo 'IyEvdXNyL2Jpbi9lbnYgYmFzaApzZXQgLWV1byBwaXBlZmFpbApBUFA9L3RtcC9ydW50aW1lL0RyaWZ0bGluZS1FY2hvZXMtYXQtMDMxNy12MC40LjEuYXBrCk9VVD0vdG1wL2FwaTI2LWxhdW5jaC1ldmlkZW5jZQpta2RpciAtcCAiJE9VVCIKCmFkYiB3YWl0LWZvci1kZXZpY2UKYWRiIGRldmljZXMgLWwgfCB0ZWUgIiRPVVQvYWRiLWRldmljZXMudHh0IgphZGIgc2hlbGwgZ2V0cHJvcCA+ICIkT1VUL2RldmljZS1wcm9wZXJ0aWVzLnR4dCIKCnRpbWVvdXQgMTIwIGFkYiBpbnN0YWxsIC1yIC10ICIkQVBQIiA+ICIkT1VUL2luc3RhbGwtYXBwLnR4dCIgMj4mMQpjYXQgIiRPVVQvaW5zdGFsbC1hcHAudHh0IgpncmVwIC1xIFN1Y2Nlc3MgIiRPVVQvaW5zdGFsbC1hcHAudHh0IgoKYWRiIGxvZ2NhdCAtYwp0aW1lb3V0IDYwIGFkYiBzaGVsbCBhbSBzdGFydCAtVyAtUyAtbiAiJEFQUF9QQUNLQUdFLyRNQUlOX0FDVElWSVRZIiA+ICIkT1VUL2ZpcnN0LWxhdW5jaC50eHQiIDI+JjEKY2F0ICIkT1VUL2ZpcnN0LWxhdW5jaC50eHQiCnNsZWVwIDgKUElEPSIkKGFkYiBzaGVsbCBwaWRvZiAiJEFQUF9QQUNLQUdFIiB8IHRyIC1kICdccicpIgp0ZXN0IC1uICIkUElEIgplY2hvICIkUElEIiA+ICIkT1VUL2ZpcnN0LWxhdW5jaC5waWQiCmFkYiBleGVjLW91dCBzY3JlZW5jYXAgLXAgPiAiJE9VVC9maXJzdC1sYXVuY2gucG5nIgphZGIgc2hlbGwgdWlhdXRvbWF0b3IgZHVtcCAvc2RjYXJkL3dpbmRvdy54bWwgPi9kZXYvbnVsbCB8fCB0cnVlCmFkYiBwdWxsIC9zZGNhcmQvd2luZG93LnhtbCAiJE9VVC9maXJzdC13aW5kb3cueG1sIiA+L2Rldi9udWxsIHx8IHRydWUKYWRiIGxvZ2NhdCAtZCAtdiB0aHJlYWR0aW1lID4gIiRPVVQvbG9nY2F0LWZpcnN0LWxhdW5jaC50eHQiCiEgZ3JlcCAtRSAiRkFUQUwgRVhDRVBUSU9OfEFOUiBpbiAkQVBQX1BBQ0tBR0V8UHJvY2VzczogJEFQUF9QQUNLQUdFLipoYXMgZGllZCIgIiRPVVQvbG9nY2F0LWZpcnN0LWxhdW5jaC50eHQiCgphZGIgc2hlbGwgYW0gZm9yY2Utc3RvcCAiJEFQUF9QQUNLQUdFIgpzbGVlcCAyCmFkYiBsb2djYXQgLWMKdGltZW91dCA2MCBhZGIgc2hlbGwgYW0gc3RhcnQgLVcgLVMgLW4gIiRBUFBfUEFDS0FHRS8kTUFJTl9BQ1RJVklUWSIgPiAiJE9VVC9yZWxhdW5jaC50eHQiIDI+JjEKY2F0ICIkT1VUL3JlbGF1bmNoLnR4dCIKc2xlZXAgNgpQSUQyPSIkKGFkYiBzaGVsbCBwaWRvZiAiJEFQUF9QQUNLQUdFIiB8IHRyIC1kICdccicpIgp0ZXN0IC1uICIkUElEMiIKZWNobyAiJFBJRDIiID4gIiRPVVQvcmVsYXVuY2gucGlkIgphZGIgZXhlYy1vdXQgc2NyZWVuY2FwIC1wID4gIiRPVVQvcmVsYXVuY2gucG5nIgphZGIgc2hlbGwgdWlhdXRvbWF0b3IgZHVtcCAvc2RjYXJkL3dpbmRvdzIueG1sID4vZGV2L251bGwgfHwgdHJ1ZQphZGIgcHVsbCAvc2RjYXJkL3dpbmRvdzIueG1sICIkT1VUL3JlbGF1bmNoLXdpbmRvdy54bWwiID4vZGV2L251bGwgfHwgdHJ1ZQphZGIgbG9nY2F0IC1kIC12IHRocmVhZHRpbWUgPiAiJE9VVC9sb2djYXQtcmVsYXVuY2gudHh0IgohIGdyZXAgLUUgIkZBVEFMIEVYQ0VQVElPTnxBTlIgaW4gJEFQUF9QQUNLQUdFfFByb2Nlc3M6ICRBUFBfUEFDS0FHRS4qaGFzIGRpZWQiICIkT1VUL2xvZ2NhdC1yZWxhdW5jaC50eHQiCg==' | base64 -d > /tmp/driftline-api26-launch.sh && bash /tmp/driftline-api26-launch.sh
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: driftline-v041-api26-launch-evidence
+          path: /tmp/api26-launch-evidence
+          if-no-files-found: warn
+          retention-days: 7
