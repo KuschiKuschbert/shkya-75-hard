@@ -1,0 +1,59 @@
+name: Driftline v0.4.1 API 26 Launch Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/driftline-v041-api26-launch.yml"
+      - ".github/scripts/driftline-api26-launch.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUNTIME_URL: 'https://sdmntprindiasocentral.oaiusercontent.com/files/00000000-faf4-8211-8af4-24bf3e767c24/raw?se=2026-08-08T06%3A29%3A06Z&sp=r&sv=2026-02-06&sr=b&scid=3f40c4ec-2b74-5659-9cc2-de6fdca5d52d&skoid=cb94e22a-e3df-4e6a-9e17-1696f40fa435&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-08T02%3A32%3A11Z&ske=2026-08-09T02%3A32%3A11Z&sks=b&skv=2026-02-06&sig=xEUA8y%2BotXbT/BwCwpxyP1T/RO8MumSe6SyXMPhoeyM%3D'
+  RUNTIME_SHA256: 9e140dc7b6a3b122d8dd53bf56fbcb5b04eeb6643ad26647f6afb7acd42cd973
+  APP_PACKAGE: com.kuschi.driftline.echoes
+  MAIN_ACTIVITY: com.kuschi.driftline.MainActivity
+
+jobs:
+  api26-launch:
+    name: API 26 install, launch, force-stop, and relaunch
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out runtime script
+        uses: actions/checkout@v4
+
+      - name: Download and verify APK bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/runtime /tmp/api26-launch-evidence
+          curl --fail --location --retry 5 --retry-all-errors "$RUNTIME_URL" -o /tmp/runtime.zip
+          echo "$RUNTIME_SHA256  /tmp/runtime.zip" | sha256sum --check --strict
+          unzip -q /tmp/runtime.zip -d /tmp/runtime
+          test -s /tmp/runtime/Driftline-Echoes-at-0317-v0.4.1.apk
+
+      - name: Boot Android 8 and execute runtime launch gate
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 26
+          target: google_apis
+          arch: x86_64
+          profile: pixel
+          force-avd-creation: true
+          emulator-boot-timeout: 600
+          disable-animations: true
+          emulator-options: -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: bash .github/scripts/driftline-api26-launch.sh
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: driftline-v041-api26-launch-evidence
+          path: /tmp/api26-launch-evidence
+          if-no-files-found: warn
+          retention-days: 7
