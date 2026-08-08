@@ -1,0 +1,198 @@
+name: Driftline v0.4.1 Emulator Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/driftline-v041-emulator.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUNTIME_URL: 'https://sdmntprindiasocentral.oaiusercontent.com/files/00000000-6c94-8211-ab62-ab5efa6cce51/raw?se=2026-08-08T05%3A26%3A12Z&sp=r&sv=2026-02-06&sr=b&scid=258cedaf-57c6-538f-919d-329374dec14e&skoid=cb94e22a-e3df-4e6a-9e17-1696f40fa435&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-07T22%3A45%3A20Z&ske=2026-08-08T22%3A45%3A20Z&sks=b&skv=2026-02-06&sig=33cpS%2B2%2BanJcK6AgXbs/ph2hl4b8shaU15%2BAKsou830%3D'
+  RUNTIME_SHA256: 9e140dc7b6a3b122d8dd53bf56fbcb5b04eeb6643ad26647f6afb7acd42cd973
+  APP_PACKAGE: com.kuschi.driftline.echoes
+  MAIN_ACTIVITY: com.kuschi.driftline.MainActivity
+
+jobs:
+  api35-e2e:
+    name: API 35 full installed-app E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - name: Download and verify runtime APK bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/runtime /tmp/api35-evidence
+          curl --fail --location --retry 5 --retry-all-errors "$RUNTIME_URL" -o /tmp/runtime.zip
+          echo "$RUNTIME_SHA256  /tmp/runtime.zip" | sha256sum --check --strict
+          unzip -q /tmp/runtime.zip -d /tmp/runtime
+          find /tmp/runtime -maxdepth 2 -type f -printf '%p %s bytes\n' | tee /tmp/api35-evidence/runtime-files.txt
+          test -s /tmp/runtime/Driftline-Echoes-at-0317-v0.4.1.apk
+          test -s /tmp/runtime/Driftline-Echoes-at-0317-v0.4.1-androidTest.apk
+
+      - name: Boot API 35, install APKs, and execute full E2E suite
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: true
+          emulator-boot-timeout: 600
+          disable-animations: true
+          emulator-options: -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: |
+            bash <<'BASH'
+            set -euo pipefail
+            APP=/tmp/runtime/Driftline-Echoes-at-0317-v0.4.1.apk
+            TEST=/tmp/runtime/Driftline-Echoes-at-0317-v0.4.1-androidTest.apk
+
+            adb wait-for-device
+            adb devices -l | tee /tmp/api35-evidence/adb-devices.txt
+            adb shell getprop > /tmp/api35-evidence/device-properties.txt
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+            adb shell settings put system accelerometer_rotation 0
+            adb shell settings put system user_rotation 0
+
+            adb install -r -t "$APP" | tee /tmp/api35-evidence/install-app.txt
+            grep -q Success /tmp/api35-evidence/install-app.txt
+            adb install -r -t "$TEST" | tee /tmp/api35-evidence/install-test.txt
+            grep -q Success /tmp/api35-evidence/install-test.txt
+            INSTRUMENTATION=$(adb shell pm list instrumentation | tr -d '\r' | sed -n "s#^instrumentation:\([^ ]*\) (target=$APP_PACKAGE).*#\1#p" | head -n1)
+            test -n "$INSTRUMENTATION"
+            echo "$INSTRUMENTATION" | tee /tmp/api35-evidence/instrumentation-component.txt
+
+            echo '=== Tall portrait 1080x2400 @ 420 dpi ==='
+            adb shell wm size 1080x2400
+            adb shell wm density 420
+            adb shell pm clear "$APP_PACKAGE" || true
+            adb logcat -c
+            adb shell am instrument -w -r "$INSTRUMENTATION" 2>&1 | tee /tmp/api35-evidence/instrumentation-tall.txt
+            grep -Eq 'OK \([1-9][0-9]* tests?\)' /tmp/api35-evidence/instrumentation-tall.txt
+            ! grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/api35-evidence/instrumentation-tall.txt
+            adb logcat -d -v threadtime > /tmp/api35-evidence/logcat-tall.txt
+            ! grep -E "FATAL EXCEPTION|ANR in $APP_PACKAGE|Process: $APP_PACKAGE.*has died" /tmp/api35-evidence/logcat-tall.txt
+            adb exec-out screencap -p > /tmp/api35-evidence/after-e2e-tall.png
+            adb shell dumpsys meminfo "$APP_PACKAGE" > /tmp/api35-evidence/meminfo-tall.txt || true
+            adb shell dumpsys gfxinfo "$APP_PACKAGE" framestats > /tmp/api35-evidence/gfxinfo-tall.txt || true
+
+            echo '=== Compact portrait 720x1280 @ 320 dpi ==='
+            adb shell wm size 720x1280
+            adb shell wm density 320
+            adb shell pm clear "$APP_PACKAGE" || true
+            adb logcat -c
+            adb shell am instrument -w -r "$INSTRUMENTATION" 2>&1 | tee /tmp/api35-evidence/instrumentation-compact.txt
+            grep -Eq 'OK \([1-9][0-9]* tests?\)' /tmp/api35-evidence/instrumentation-compact.txt
+            ! grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/api35-evidence/instrumentation-compact.txt
+            adb logcat -d -v threadtime > /tmp/api35-evidence/logcat-compact.txt
+            ! grep -E "FATAL EXCEPTION|ANR in $APP_PACKAGE|Process: $APP_PACKAGE.*has died" /tmp/api35-evidence/logcat-compact.txt
+            adb exec-out screencap -p > /tmp/api35-evidence/after-e2e-compact.png
+            adb shell dumpsys meminfo "$APP_PACKAGE" > /tmp/api35-evidence/meminfo-compact.txt || true
+            adb shell dumpsys gfxinfo "$APP_PACKAGE" framestats > /tmp/api35-evidence/gfxinfo-compact.txt || true
+
+            echo '=== Cold relaunch ==='
+            adb shell wm size reset
+            adb shell wm density reset
+            adb logcat -c
+            adb shell am force-stop "$APP_PACKAGE"
+            adb shell am start -W -S -n "$APP_PACKAGE/$MAIN_ACTIVITY" | tee /tmp/api35-evidence/cold-relaunch.txt
+            sleep 6
+            test -n "$(adb shell pidof "$APP_PACKAGE" | tr -d '\r')"
+            adb exec-out screencap -p > /tmp/api35-evidence/cold-relaunch.png
+            adb shell uiautomator dump /sdcard/window.xml >/dev/null || true
+            adb pull /sdcard/window.xml /tmp/api35-evidence/window.xml >/dev/null || true
+            adb logcat -d -v threadtime > /tmp/api35-evidence/logcat-cold-relaunch.txt
+            ! grep -E "FATAL EXCEPTION|ANR in $APP_PACKAGE|Process: $APP_PACKAGE.*has died" /tmp/api35-evidence/logcat-cold-relaunch.txt
+            BASH
+
+      - name: Upload API 35 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: driftline-v041-api35-e2e
+          path: /tmp/api35-evidence
+          if-no-files-found: warn
+          retention-days: 7
+
+  api26-smoke:
+    name: API 26 minimum-version runtime smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Download and verify runtime APK bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/runtime /tmp/api26-evidence
+          curl --fail --location --retry 5 --retry-all-errors "$RUNTIME_URL" -o /tmp/runtime.zip
+          echo "$RUNTIME_SHA256  /tmp/runtime.zip" | sha256sum --check --strict
+          unzip -q /tmp/runtime.zip -d /tmp/runtime
+          find /tmp/runtime -maxdepth 2 -type f -printf '%p %s bytes\n' | tee /tmp/api26-evidence/runtime-files.txt
+          test -s /tmp/runtime/Driftline-Echoes-at-0317-v0.4.1.apk
+          test -s /tmp/runtime/Driftline-Echoes-at-0317-v0.4.1-androidTest.apk
+
+      - name: Boot API 26, install APKs, and run minimum-version smoke
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 26
+          target: google_apis
+          arch: x86_64
+          profile: pixel
+          force-avd-creation: true
+          emulator-boot-timeout: 600
+          disable-animations: true
+          emulator-options: -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: |
+            bash <<'BASH'
+            set -euo pipefail
+            APP=/tmp/runtime/Driftline-Echoes-at-0317-v0.4.1.apk
+            TEST=/tmp/runtime/Driftline-Echoes-at-0317-v0.4.1-androidTest.apk
+
+            adb wait-for-device
+            adb devices -l | tee /tmp/api26-evidence/adb-devices.txt
+            adb shell getprop > /tmp/api26-evidence/device-properties.txt
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+
+            adb install -r -t "$APP" | tee /tmp/api26-evidence/install-app.txt
+            grep -q Success /tmp/api26-evidence/install-app.txt
+            adb install -r -t "$TEST" | tee /tmp/api26-evidence/install-test.txt
+            grep -q Success /tmp/api26-evidence/install-test.txt
+            adb logcat -c
+            adb shell am start -W -S -n "$APP_PACKAGE/$MAIN_ACTIVITY" | tee /tmp/api26-evidence/first-launch.txt
+            sleep 7
+            test -n "$(adb shell pidof "$APP_PACKAGE" | tr -d '\r')"
+            adb exec-out screencap -p > /tmp/api26-evidence/first-launch.png
+            adb shell uiautomator dump /sdcard/window.xml >/dev/null || true
+            adb pull /sdcard/window.xml /tmp/api26-evidence/first-window.xml >/dev/null || true
+
+            INSTRUMENTATION=$(adb shell pm list instrumentation | tr -d '\r' | sed -n "s#^instrumentation:\([^ ]*\) (target=$APP_PACKAGE).*#\1#p" | head -n1)
+            test -n "$INSTRUMENTATION"
+            adb shell am instrument -w -r -e class com.kuschi.driftline.DriftlineE2ETest#lifecycleAndAccessibilityModesRemainUsable "$INSTRUMENTATION" 2>&1 | tee /tmp/api26-evidence/instrumentation-smoke.txt
+            grep -Eq 'OK \(1 tests?\)' /tmp/api26-evidence/instrumentation-smoke.txt
+            ! grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/api26-evidence/instrumentation-smoke.txt
+
+            adb shell am force-stop "$APP_PACKAGE"
+            adb shell am start -W -S -n "$APP_PACKAGE/$MAIN_ACTIVITY" | tee /tmp/api26-evidence/relaunch.txt
+            sleep 5
+            test -n "$(adb shell pidof "$APP_PACKAGE" | tr -d '\r')"
+            adb exec-out screencap -p > /tmp/api26-evidence/relaunch.png
+            adb logcat -d -v threadtime > /tmp/api26-evidence/logcat.txt
+            ! grep -E "FATAL EXCEPTION|ANR in $APP_PACKAGE|Process: $APP_PACKAGE.*has died" /tmp/api26-evidence/logcat.txt
+            BASH
+
+      - name: Upload API 26 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: driftline-v041-api26-smoke
+          path: /tmp/api26-evidence
+          if-no-files-found: warn
+          retention-days: 7
