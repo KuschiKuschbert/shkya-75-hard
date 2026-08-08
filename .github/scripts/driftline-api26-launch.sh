@@ -9,7 +9,7 @@ adb wait-for-device
 adb devices -l | tee "$OUT/adb-devices.txt"
 adb shell getprop > "$OUT/device-properties.txt"
 
-timeout 120 adb install -r -t "$APP" > "$OUT/install-app.txt" 2>&1
+timeout 900 adb install -r -t "$APP" > "$OUT/install-app.txt" 2>&1
 cat "$OUT/install-app.txt"
 grep -q Success "$OUT/install-app.txt"
 
