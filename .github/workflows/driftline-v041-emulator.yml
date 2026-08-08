@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  RUNTIME_URL: 'https://sdmntpraustraliaeast.oaiusercontent.com/files/00000000-58fc-81fa-9063-81488d7f3aa5/raw?se=2026-08-08T05%3A18%3A59Z&sp=r&sv=2026-02-06&sr=b&scid=5e85d820-1e70-5336-a59f-6b4c8f143d9b&skoid=cb94e22a-e3df-4e6a-9e17-1696f40fa435&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-08T02%3A07%3A52Z&ske=2026-08-09T02%3A07%3A52Z&sks=b&skv=2026-02-06&sig=zPIt2Y2xoCdZ3Y8ToEzEbj6uj2QW9dLGm4jFtJjsVvI%3D'
+  RUNTIME_URL: 'https://sdmntprindiasocentral.oaiusercontent.com/files/00000000-6c94-8211-ab62-ab5efa6cce51/raw?se=2026-08-08T05%3A26%3A12Z&sp=r&sv=2026-02-06&sr=b&scid=258cedaf-57c6-538f-919d-329374dec14e&skoid=cb94e22a-e3df-4e6a-9e17-1696f40fa435&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-07T22%3A45%3A20Z&ske=2026-08-08T22%3A45%3A20Z&sks=b&skv=2026-02-06&sig=33cpS%2B2%2BanJcK6AgXbs/ph2hl4b8shaU15%2BAKsou830%3D'
   RUNTIME_SHA256: 9e140dc7b6a3b122d8dd53bf56fbcb5b04eeb6643ad26647f6afb7acd42cd973
   APP_PACKAGE: com.kuschi.driftline.echoes
   MAIN_ACTIVITY: com.kuschi.driftline.MainActivity
@@ -46,8 +46,8 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none
           script: |
+            bash <<'BASH'
             set -euo pipefail
-            set -o pipefail
             APP=/tmp/runtime/Driftline-Echoes-at-0317-v0.4.1.apk
             TEST=/tmp/runtime/Driftline-Echoes-at-0317-v0.4.1-androidTest.apk
 
@@ -61,7 +61,9 @@ jobs:
             adb shell settings put system user_rotation 0
 
             adb install -r -t "$APP" | tee /tmp/api35-evidence/install-app.txt
+            grep -q Success /tmp/api35-evidence/install-app.txt
             adb install -r -t "$TEST" | tee /tmp/api35-evidence/install-test.txt
+            grep -q Success /tmp/api35-evidence/install-test.txt
             INSTRUMENTATION=$(adb shell pm list instrumentation | tr -d '\r' | sed -n "s#^instrumentation:\([^ ]*\) (target=$APP_PACKAGE).*#\1#p" | head -n1)
             test -n "$INSTRUMENTATION"
             echo "$INSTRUMENTATION" | tee /tmp/api35-evidence/instrumentation-component.txt
@@ -107,6 +109,7 @@ jobs:
             adb pull /sdcard/window.xml /tmp/api35-evidence/window.xml >/dev/null || true
             adb logcat -d -v threadtime > /tmp/api35-evidence/logcat-cold-relaunch.txt
             ! grep -E "FATAL EXCEPTION|ANR in $APP_PACKAGE|Process: $APP_PACKAGE.*has died" /tmp/api35-evidence/logcat-cold-relaunch.txt
+            BASH
 
       - name: Upload API 35 evidence
         if: always()
@@ -146,8 +149,8 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none
           script: |
+            bash <<'BASH'
             set -euo pipefail
-            set -o pipefail
             APP=/tmp/runtime/Driftline-Echoes-at-0317-v0.4.1.apk
             TEST=/tmp/runtime/Driftline-Echoes-at-0317-v0.4.1-androidTest.apk
 
@@ -159,7 +162,9 @@ jobs:
             adb shell settings put global animator_duration_scale 0
 
             adb install -r -t "$APP" | tee /tmp/api26-evidence/install-app.txt
+            grep -q Success /tmp/api26-evidence/install-app.txt
             adb install -r -t "$TEST" | tee /tmp/api26-evidence/install-test.txt
+            grep -q Success /tmp/api26-evidence/install-test.txt
             adb logcat -c
             adb shell am start -W -S -n "$APP_PACKAGE/$MAIN_ACTIVITY" | tee /tmp/api26-evidence/first-launch.txt
             sleep 7
@@ -181,6 +186,7 @@ jobs:
             adb exec-out screencap -p > /tmp/api26-evidence/relaunch.png
             adb logcat -d -v threadtime > /tmp/api26-evidence/logcat.txt
             ! grep -E "FATAL EXCEPTION|ANR in $APP_PACKAGE|Process: $APP_PACKAGE.*has died" /tmp/api26-evidence/logcat.txt
+            BASH
 
       - name: Upload API 26 evidence
         if: always()
